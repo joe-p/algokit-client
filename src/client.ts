@@ -13,13 +13,17 @@ type AssetCreateParams = CommonTxnParams & {
     total: number, decimals?: number, defaultFrozen?: boolean
 }
 
-type Txn = (PayTxnParams & { type: 'pay' }) | (AssetCreateParams & { type: 'assetCreate' })
+type Txn =
+    (PayTxnParams & { type: 'pay' })
+    | (AssetCreateParams & { type: 'assetCreate' })
+    | (algosdk.TransactionWithSigner & { type: 'txnWithSigner' })
 
 class ATCWrapper {
     atc: algosdk.AtomicTransactionComposer;
     algod: algosdk.Algodv2;
     getSuggestedParams: () => Promise<algosdk.SuggestedParams>;
     getSigner: (address: string) => algosdk.TransactionSigner;
+    methodCalls: Map<number, algosdk.ABIMethod> = new Map();
 
     txns: Txn[] = [];
 
@@ -39,6 +43,24 @@ class ATCWrapper {
 
     addAssetCreate(params: AssetCreateParams): ATCWrapper {
         this.txns.push({ ...params, type: 'assetCreate' });
+
+        return this
+    }
+
+    addAtc(atc: algosdk.AtomicTransactionComposer): ATCWrapper {
+        const currentLength = this.txns.length;
+        const group = atc.buildGroup();
+
+        const methodCalls = atc['methodCalls'] as Map<number, algosdk.ABIMethod>;
+
+        methodCalls.forEach((method, idx) => {
+            this.methodCalls.set(currentLength + idx, method);
+        });
+
+
+        group.forEach((ts) => {
+            this.txns.push({ ...ts, type: 'txnWithSigner' });
+        });
 
         return this
     }
@@ -66,6 +88,11 @@ class ATCWrapper {
         const suggestedParams = await this.getSuggestedParams();
 
         this.txns.forEach((txn) => {
+            if (txn.type === 'txnWithSigner') {
+                this.atc.addTransaction({ ...txn });
+                return;
+            }
+
             const signer = txn.signer ?? this.getSigner(txn.from);
 
             if (txn.type === 'pay') {
@@ -78,6 +105,10 @@ class ATCWrapper {
         });
 
         this.atc.buildGroup();
+
+        this.atc['methodCalls'] = this.methodCalls;
+
+        console.log(this.methodCalls)
 
         return this;
     }

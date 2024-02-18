@@ -2,6 +2,7 @@
 import * as algokit from '@algorandfoundation/algokit-utils';
 import algosdk from 'algosdk';
 import Client from './client';
+import { CalculatorClient } from './CalculatorClient';
 
 async function main() {
     // ===== Create two accounts =====
@@ -43,7 +44,23 @@ async function main() {
     console.log("Create result confirmation", createResult.confirmations![0]);
     const assetIndex = Number(createResult.confirmations![0].assetIndex);
 
-    console.log('DONE')
+    const appClient = new CalculatorClient({
+        id: 0,
+        resolveBy: 'id',
+        sender: { addr: alice.addr, signer: client.signers[alice.addr] }
+    }, algod);
+
+    await appClient.create.createApplication({});
+
+    const appAtc = await appClient.compose().doMath({ a: 1, b: 2, operation: 'sum' }).atc()
+
+    const result = await client
+        .newGroup()
+        .addAtc(appAtc)
+        .addPayment({ from: alice.addr, to: alice.addr, amount: 0 })
+        .execute();
+
+    console.log('return', result.returns?.[0].returnValue?.valueOf())
     return
 
     // ===== Try to send ASA from Alice to Bob =====
