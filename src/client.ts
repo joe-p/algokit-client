@@ -2,7 +2,7 @@ import algosdk from 'algosdk'
 import * as algokit from '@algorandfoundation/algokit-utils'
 
 type CommonTxnParams = {
-    from: string, signer: algosdk.TransactionSigner
+    from: string, signer?: algosdk.TransactionSigner
 }
 
 type PayTxnParams = CommonTxnParams & {
@@ -19,14 +19,16 @@ class ATCWrapper {
     atc: algosdk.AtomicTransactionComposer;
     algod: algosdk.Algodv2;
     getSendParams: () => Promise<algosdk.SuggestedParams>;
+    getSigner: (address: string) => algosdk.TransactionSigner;
 
     txns: Txn[] = [];
 
-    constructor(algod: algosdk.Algodv2, getSendParams?: () => Promise<algosdk.SuggestedParams>) {
+    constructor(algod: algosdk.Algodv2, getSigner: (address: string) => algosdk.TransactionSigner, getSendParams?: () => Promise<algosdk.SuggestedParams>) {
         this.atc = new algosdk.AtomicTransactionComposer();
         this.algod = algod;
         const defaultGetSendParams = () => algod.getTransactionParams().do();
         this.getSendParams = getSendParams ?? defaultGetSendParams;
+        this.getSigner = getSigner;
     }
 
     addPayment(params: PayTxnParams): ATCWrapper {
@@ -63,13 +65,15 @@ class ATCWrapper {
     async buildGroup() {
         const suggestedParams = await this.getSendParams();
 
-        this.txns.forEach(async (txn) => {
+        this.txns.forEach((txn) => {
+            const signer = txn.signer ?? this.getSigner(txn.from);
+
             if (txn.type === 'pay') {
                 const payment = this.buildPayment(txn, suggestedParams);
-                this.atc.addTransaction({ txn: payment, signer: txn.signer });
+                this.atc.addTransaction({ txn: payment, signer });
             } else if (txn.type === 'assetCreate') {
                 const assetCreate = this.buildAssetCreate(txn, suggestedParams);
-                this.atc.addTransaction({ txn: assetCreate, signer: txn.signer });
+                this.atc.addTransaction({ txn: assetCreate, signer });
             }
         });
 
@@ -87,13 +91,16 @@ class ATCWrapper {
 export default class Client {
     algod: algosdk.Algodv2;
 
-    groups: { [groupName: string]: ATCWrapper } = {};
+    signers: { [address: string]: algosdk.TransactionSigner } = {};
 
     constructor({ algodClient }: { algodClient: algosdk.Algodv2; }) {
         this.algod = algodClient;
     }
 
     newGroup(groupName?: string) {
-        return this.groups[groupName ?? Date.now.toString()] = new ATCWrapper(this.algod);
+        return new ATCWrapper(
+            this.algod,
+            (addr: string) => this.signers[addr]
+        );
     }
 }

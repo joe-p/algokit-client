@@ -22,12 +22,12 @@ async function main() {
     const dispenser = await algokit.getDispenserAccount(algod, kmd);
 
     // Transaction signer is a function that allows us to sign transactions for a given account
-    const aliceSigner = algosdk.makeBasicAccountTransactionSigner(alice);
-    const dispenserSigner = algosdk.makeBasicAccountTransactionSigner(dispenser);
+    client.signers[alice.addr] = algosdk.makeBasicAccountTransactionSigner(alice);
+    client.signers[dispenser.addr] = algosdk.makeBasicAccountTransactionSigner(dispenser);
 
     await client
         .newGroup()
-        .addPayment({ from: dispenser.addr, to: alice.addr, amount: 10e6, signer: dispenserSigner })
+        .addPayment({ from: dispenser.addr, to: alice.addr, amount: 10e6 })
         .execute();
 
     // See new balance
@@ -36,7 +36,7 @@ async function main() {
     // ===== Create the ASA. ASA === Algorand Standard Asset =====
     const createResult = await client
         .newGroup()
-        .addAssetCreate({ from: alice.addr, total: 100, signer: aliceSigner })
+        .addAssetCreate({ from: alice.addr, total: 100 })
         .execute();
 
     // Get assetIndex from transaction
