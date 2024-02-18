@@ -56,8 +56,8 @@ async function main() {
 
     const result = await client
         .newGroup()
-        .addAtc(appAtc)
         .addPayment({ from: alice.addr, to: alice.addr, amount: 0 })
+        .addAtc(appAtc)
         .execute();
 
     console.log('return', result.returns?.[0].returnValue?.valueOf())
