@@ -121,11 +121,11 @@ class ATCWrapper {
             this.atc.addTransaction(ts);
         });
 
-        this.atc.buildGroup();
+        const builtGroup = this.atc.buildGroup();
 
         this.atc['methodCalls'] = methodCalls;
 
-        return this;
+        return builtGroup;
     }
 
     async execute() {
