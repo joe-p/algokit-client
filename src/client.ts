@@ -18,16 +18,16 @@ type Txn = (PayTxnParams & { type: 'pay' }) | (AssetCreateParams & { type: 'asse
 class ATCWrapper {
     atc: algosdk.AtomicTransactionComposer;
     algod: algosdk.Algodv2;
-    getSendParams: () => Promise<algosdk.SuggestedParams>;
+    getSuggestedParams: () => Promise<algosdk.SuggestedParams>;
     getSigner: (address: string) => algosdk.TransactionSigner;
 
     txns: Txn[] = [];
 
-    constructor(algod: algosdk.Algodv2, getSigner: (address: string) => algosdk.TransactionSigner, getSendParams?: () => Promise<algosdk.SuggestedParams>) {
+    constructor(algod: algosdk.Algodv2, getSigner: (address: string) => algosdk.TransactionSigner, getSuggestedParams?: () => Promise<algosdk.SuggestedParams>) {
         this.atc = new algosdk.AtomicTransactionComposer();
         this.algod = algod;
         const defaultGetSendParams = () => algod.getTransactionParams().do();
-        this.getSendParams = getSendParams ?? defaultGetSendParams;
+        this.getSuggestedParams = getSuggestedParams ?? defaultGetSendParams;
         this.getSigner = getSigner;
     }
 
@@ -63,7 +63,7 @@ class ATCWrapper {
     }
 
     async buildGroup() {
-        const suggestedParams = await this.getSendParams();
+        const suggestedParams = await this.getSuggestedParams();
 
         this.txns.forEach((txn) => {
             const signer = txn.signer ?? this.getSigner(txn.from);
@@ -93,14 +93,30 @@ export default class Client {
 
     signers: { [address: string]: algosdk.TransactionSigner } = {};
 
+    cachedSuggestedParamsTimeout: number = 3000 // three seconds
+
+    cachedSuggestedParams?: { params: algosdk.SuggestedParams, time: number }
+
     constructor({ algodClient }: { algodClient: algosdk.Algodv2; }) {
         this.algod = algodClient;
+    }
+
+    async getSuggestedParams() {
+        if (this.cachedSuggestedParams && Date.now() - this.cachedSuggestedParams.time < this.cachedSuggestedParamsTimeout) {
+            return this.cachedSuggestedParams.params;
+        }
+
+        const params = await this.algod.getTransactionParams().do();
+        this.cachedSuggestedParams = { params, time: Date.now() };
+
+        return params;
     }
 
     newGroup(groupName?: string) {
         return new ATCWrapper(
             this.algod,
-            (addr: string) => this.signers[addr]
+            (addr: string) => this.signers[addr],
+            () => this.getSuggestedParams()
         );
     }
 }
