@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 import * as algokit from '@algorandfoundation/algokit-utils';
 import algosdk from 'algosdk';
+import Client from './client';
 
 async function main() {
     // ===== Create two accounts =====
@@ -11,6 +12,7 @@ async function main() {
 
     // ===== Get information about alice from algod =====
     const algod = algokit.getAlgoClient(algokit.getDefaultLocalNetConfig('algod'));
+    const client = new Client({ algodClient: algod });
 
     console.log("Algod verisions:", await algod.versionsCheck().do());
     console.log("Alice's Account:", await algod.accountInformation(alice.addr).do());
@@ -18,49 +20,31 @@ async function main() {
     // ===== Get some ALGO into alice's account =====
     const kmd = algokit.getAlgoKmdClient(algokit.getDefaultLocalNetConfig('kmd'));
     const dispenser = await algokit.getDispenserAccount(algod, kmd);
-    const aliceFundTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-        from: dispenser.addr,
-        to: alice.addr,
-        amount: 10e6,
-        suggestedParams: await algod.getTransactionParams().do(),
-    });
 
     // Transaction signer is a function that allows us to sign transactions for a given account
     const aliceSigner = algosdk.makeBasicAccountTransactionSigner(alice);
     const dispenserSigner = algosdk.makeBasicAccountTransactionSigner(dispenser);
 
-    // Create an atomic transaction composer (ATC)
-    const aliceFundAtc = new algosdk.AtomicTransactionComposer();
-
-    // Add transaction and send
-    aliceFundAtc.addTransaction({ txn: aliceFundTxn, signer: dispenserSigner });
-    await algokit.sendAtomicTransactionComposer({ atc: aliceFundAtc }, algod);
+    await client
+        .newGroup()
+        .addPayment({ from: dispenser.addr, to: alice.addr, amount: 10e6, signer: dispenserSigner })
+        .execute();
 
     // See new balance
     console.log("Alice's Account", await algod.accountInformation(alice.addr).do());
 
     // ===== Create the ASA. ASA === Algorand Standard Asset =====
-    const asaCreation = algosdk.makeAssetCreateTxnWithSuggestedParamsFromObject({
-        from: alice.addr,
-        total: 100,
-        // Total is 100
-        // Decimals: 0 => 100 non-divisible tokens
-        // Decimals: 1 => 10 tokens divided by 10
-        // Decimals: 2 => 1 token divided by 100
-        // Decimals, is the amount of decimal places your token supports
-        decimals: 0,
-        defaultFrozen: false,
-        suggestedParams: await algod.getTransactionParams().do(),
-    });
-
-    const asaCreateAtc = new algosdk.AtomicTransactionComposer();
-    asaCreateAtc.addTransaction({ txn: asaCreation, signer: aliceSigner });
-
-    const createResult = await algokit.sendAtomicTransactionComposer({ atc: asaCreateAtc }, algod);
+    const createResult = await client
+        .newGroup()
+        .addAssetCreate({ from: alice.addr, total: 100, signer: aliceSigner })
+        .execute();
 
     // Get assetIndex from transaction
     console.log("Create result confirmation", createResult.confirmations![0]);
     const assetIndex = Number(createResult.confirmations![0].assetIndex);
+
+    console.log('DONE')
+    return
 
     // ===== Try to send ASA from Alice to Bob =====
     const asaTransfer = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
