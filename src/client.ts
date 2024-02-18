@@ -17,13 +17,13 @@ type Txn =
     (PayTxnParams & { type: 'pay' })
     | (AssetCreateParams & { type: 'assetCreate' })
     | (algosdk.TransactionWithSigner & { type: 'txnWithSigner' })
+    | { atc: algosdk.AtomicTransactionComposer, type: 'atc' }
 
 class ATCWrapper {
     atc: algosdk.AtomicTransactionComposer;
     algod: algosdk.Algodv2;
     getSuggestedParams: () => Promise<algosdk.SuggestedParams>;
     getSigner: (address: string) => algosdk.TransactionSigner;
-    methodCalls: Map<number, algosdk.ABIMethod> = new Map();
 
     txns: Txn[] = [];
 
@@ -48,21 +48,26 @@ class ATCWrapper {
     }
 
     addAtc(atc: algosdk.AtomicTransactionComposer): ATCWrapper {
-        const currentLength = this.txns.length;
+        this.txns.push({ atc, type: 'atc' })
+        return this
+    }
+
+    private buildAtc(atc: algosdk.AtomicTransactionComposer, txnWithSigners: algosdk.TransactionWithSigner[], methodCalls: Map<number, algosdk.ABIMethod>) {
+        const currentLength = txnWithSigners.length;
         const group = atc.buildGroup();
 
-        const methodCalls = atc['methodCalls'] as Map<number, algosdk.ABIMethod>;
+        const atcMethodCalls = atc['methodCalls'] as Map<number, algosdk.ABIMethod>;
 
-        methodCalls.forEach((method, idx) => {
-            this.methodCalls.set(currentLength + idx, method);
+        atcMethodCalls.forEach((method, idx) => {
+            methodCalls.set(currentLength + idx, method);
         });
-
 
         group.forEach((ts) => {
-            this.txns.push({ ...ts, type: 'txnWithSigner' });
+            txnWithSigners.push(ts);
         });
 
-        return this
+        return this;
+
     }
 
     private buildPayment(params: PayTxnParams, suggestedParams: algosdk.SuggestedParams) {
@@ -87,9 +92,17 @@ class ATCWrapper {
     async buildGroup() {
         const suggestedParams = await this.getSuggestedParams();
 
+        const txnWithSigners: algosdk.TransactionWithSigner[] = []
+        const methodCalls = new Map<number, algosdk.ABIMethod>();
+
         this.txns.forEach((txn) => {
             if (txn.type === 'txnWithSigner') {
-                this.atc.addTransaction({ ...txn });
+                txnWithSigners.push(txn);
+                return;
+            }
+
+            if (txn.type === 'atc') {
+                this.buildAtc(txn.atc, txnWithSigners, methodCalls);
                 return;
             }
 
@@ -97,18 +110,20 @@ class ATCWrapper {
 
             if (txn.type === 'pay') {
                 const payment = this.buildPayment(txn, suggestedParams);
-                this.atc.addTransaction({ txn: payment, signer });
+                txnWithSigners.push({ txn: payment, signer });
             } else if (txn.type === 'assetCreate') {
                 const assetCreate = this.buildAssetCreate(txn, suggestedParams);
-                this.atc.addTransaction({ txn: assetCreate, signer });
+                txnWithSigners.push({ txn: assetCreate, signer });
             }
+        });
+
+        txnWithSigners.forEach((ts) => {
+            this.atc.addTransaction(ts);
         });
 
         this.atc.buildGroup();
 
-        this.atc['methodCalls'] = this.methodCalls;
-
-        console.log(this.methodCalls)
+        this.atc['methodCalls'] = methodCalls;
 
         return this;
     }
