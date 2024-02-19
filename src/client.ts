@@ -19,7 +19,7 @@ type Txn =
     | (algosdk.TransactionWithSigner & { type: 'txnWithSigner' })
     | { atc: algosdk.AtomicTransactionComposer, type: 'atc' }
 
-class ATCWrapper {
+class AlgokitComposer {
     atc: algosdk.AtomicTransactionComposer;
     algod: algosdk.Algodv2;
     getSuggestedParams: () => Promise<algosdk.SuggestedParams>;
@@ -35,19 +35,19 @@ class ATCWrapper {
         this.getSigner = getSigner;
     }
 
-    addPayment(params: PayTxnParams): ATCWrapper {
+    addPayment(params: PayTxnParams): AlgokitComposer {
         this.txns.push({ ...params, type: 'pay' });
 
         return this
     }
 
-    addAssetCreate(params: AssetCreateParams): ATCWrapper {
+    addAssetCreate(params: AssetCreateParams): AlgokitComposer {
         this.txns.push({ ...params, type: 'assetCreate' });
 
         return this
     }
 
-    addAtc(atc: algosdk.AtomicTransactionComposer): ATCWrapper {
+    addAtc(atc: algosdk.AtomicTransactionComposer): AlgokitComposer {
         this.txns.push({ atc, type: 'atc' })
         return this
     }
@@ -159,7 +159,7 @@ export default class Client {
     }
 
     newGroup(groupName?: string) {
-        return new ATCWrapper(
+        return new AlgokitComposer(
             this.algod,
             (addr: string) => this.signers[addr],
             () => this.getSuggestedParams()
