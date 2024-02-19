@@ -130,7 +130,7 @@ class AlgokitComposer {
 
     async execute() {
         await this.buildGroup()
-        return await algokit.sendAtomicTransactionComposer({ atc: this.atc }, this.algod);
+        return await algokit.sendAtomicTransactionComposer({ atc: this.atc, sendParams: { suppressLog: true } }, this.algod);
     }
 }
 
@@ -164,5 +164,13 @@ export default class AlgokitClient {
             (addr: string) => this.signers[addr],
             () => this.getSuggestedParams()
         );
+    }
+
+    sendPayment(params: PayTxnParams) {
+        return this.newGroup().addPayment(params).execute();
+    }
+
+    sendAssetCreate(params: AssetCreateParams) {
+        return this.newGroup().addAssetCreate(params).execute();
     }
 }

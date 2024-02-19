@@ -14,21 +14,15 @@ async function main() {
     const alice = algosdk.generateAccount();
     const dispenser = await algokit.getDispenserAccount(algod, kmd);
 
-    // Transaction signer is a function that allows us to sign transactions for a given account
+    // Set signers
     client.signers[alice.addr] = algosdk.makeBasicAccountTransactionSigner(alice);
     client.signers[dispenser.addr] = algosdk.makeBasicAccountTransactionSigner(dispenser);
 
     // Send payment
-    await client
-        .newGroup()
-        .addPayment({ from: dispenser.addr, to: alice.addr, amount: 10e6 })
-        .execute();
+    await client.sendPayment({ from: dispenser.addr, to: alice.addr, amount: 10e6 })
 
     // Create an ASA
-    const createResult = await client
-        .newGroup()
-        .addAssetCreate({ from: alice.addr, total: 100 })
-        .execute();
+    const createResult = await client.sendAssetCreate({ from: alice.addr, total: 100 })
 
     const assetIndex = Number(createResult.confirmations![0].assetIndex);
     console.log('Created asset', assetIndex);
@@ -42,11 +36,11 @@ async function main() {
     await appClient.create.createApplication({});
 
     // Add an ATC from the client composer to a group with other transactions
-    const appAtc = await appClient.compose().doMath({ a: 1, b: 2, operation: 'sum' }).atc()
+    const doMathAtc = await appClient.compose().doMath({ a: 1, b: 2, operation: 'sum' }).atc()
     const result = await client
         .newGroup()
         .addPayment({ from: alice.addr, to: alice.addr, amount: 0 })
-        .addAtc(appAtc)
+        .addAtc(doMathAtc)
         .execute();
 
     console.log('return value:', result.returns?.[0].returnValue?.valueOf())
