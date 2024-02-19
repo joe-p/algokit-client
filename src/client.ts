@@ -134,7 +134,7 @@ class AlgokitComposer {
     }
 }
 
-export default class Client {
+export default class AlgokitClient {
     algod: algosdk.Algodv2;
 
     signers: { [address: string]: algosdk.TransactionSigner } = {};

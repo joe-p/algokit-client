@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 import * as algokit from '@algorandfoundation/algokit-utils';
 import algosdk from 'algosdk';
-import Client from './client';
+import AlgokitClient from './client';
 import { CalculatorClient } from './CalculatorClient';
 
 async function main() {
@@ -13,7 +13,7 @@ async function main() {
 
     // ===== Get information about alice from algod =====
     const algod = algokit.getAlgoClient(algokit.getDefaultLocalNetConfig('algod'));
-    const client = new Client({ algodClient: algod });
+    const client = new AlgokitClient({ algodClient: algod });
 
     console.log("Algod verisions:", await algod.versionsCheck().do());
     console.log("Alice's Account:", await algod.accountInformation(alice.addr).do());
