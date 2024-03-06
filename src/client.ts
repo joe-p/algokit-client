@@ -11,6 +11,16 @@ type CommonTxnParams = {
     flatFee?: number
     /** The fee to pay IN ADDITION to the suggested fee. Useful for covering inner tranasction fees */
     extraFee?: number
+    /** How many rounds the transaction should be valid for */
+    validityWindow?: number
+    /** 
+     * Set the first round this transaction is valid. 
+     * If left undefined, the value from algod will be used. 
+     * Only set this when you intentionally want this to be some time in the future 
+     */
+    firstValidRound?: number
+    /** The last round this transaction is valid. It is recommended to use validityWindow instead */
+    lastValidRound?: number
 }
 
 type PayTxnParams = CommonTxnParams & {
@@ -104,6 +114,7 @@ class AlgokitComposer {
     algod: algosdk.Algodv2;
     getSuggestedParams: () => Promise<algosdk.SuggestedParams>;
     getSigner: (address: string) => algosdk.TransactionSigner;
+    defaultValidityWindow: number = 10
 
     txns: Txn[] = [];
 
@@ -190,6 +201,16 @@ class AlgokitComposer {
         if (params.lease) txn.addLease(params.lease);
         if (params.rekeyTo) txn.addRekey(params.rekeyTo);
         if (params.note) txn.note = params.note;
+
+        if (params.firstValidRound) {
+            txn.firstRound = params.firstValidRound;
+        }
+
+        if (params.lastValidRound) {
+            txn.lastRound = params.lastValidRound;
+        } else {
+            txn.lastRound = txn.firstRound + (params.validityWindow ?? this.defaultValidityWindow);
+        }
 
         if (params.flatFee !== undefined && params.extraFee !== undefined) {
             throw Error('Cannot set both flatFee and extraFee')
@@ -405,9 +426,21 @@ class AlgokitComposer {
         return builtGroup;
     }
 
-    async execute() {
-        await this.buildGroup()
-        return await algokit.sendAtomicTransactionComposer({ atc: this.atc, sendParams: { suppressLog: true } }, this.algod);
+    async execute(params?: { maxRoundsToWaitForConfirmation?: number }) {
+        const group = await this.buildGroup()
+
+        let waitRounds = params?.maxRoundsToWaitForConfirmation;
+
+        if (waitRounds === undefined) {
+            const lastRound = group.reduce((max, txn) => Math.max(txn.txn.lastRound, max), 0);
+            const { firstRound } = await this.getSuggestedParams()
+            waitRounds = lastRound - firstRound;
+        }
+
+        return await algokit.sendAtomicTransactionComposer({
+            atc: this.atc,
+            sendParams: { suppressLog: true, maxRoundsToWaitForConfirmation: waitRounds }
+        }, this.algod);
     }
 }
 

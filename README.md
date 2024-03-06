@@ -52,5 +52,11 @@ Many dApps currently do not set fees properly. For example, if an app wants to a
 
 In the future we need to devise a smart way to handle scenarios where one outer transaction might want to cover the fee for another out transaction. If `feePerByte` is non-zero, then this is hard to calculate. 
 
+## Differing validity window and wait times
 
+It is currently common practice to use the default validity window (1000 rounds) on transactions but only wait a short amount of rounds for confirmation (typically 3-5). This can lead to a confusing UX and potentially double transactions if the user is not aware of the validty windows of their transactions in the event of longer confirmation times.
+
+### Solution
+
+`AlgokitComposer.defaultValidityWindow` is set to a much more reasonable window (for user-facing dApps) of 10 rounds (~30 seconds). By default, `AlgokitComposer.execute()` will wait until the last valid round in the transction group has passed to ensure tranasctions are confirmed when the user is not expecting it.
 
