@@ -7,6 +7,10 @@ type CommonTxnParams = {
     rekeyTo?: string
     note?: Uint8Array
     lease?: Uint8Array
+    /** The tranasction fee. In most cases you want to use `extraFee` unless setting the fee to 0 to be covered by another transaction */
+    flatFee?: number
+    /** The fee to pay IN ADDITION to the suggested fee. Useful for covering inner tranasction fees */
+    extraFee?: number
 }
 
 type PayTxnParams = CommonTxnParams & {
@@ -182,19 +186,34 @@ class AlgokitComposer {
 
     }
 
+    private commonTxnBuildStep(params: CommonTxnParams, txn: algosdk.Transaction, suggestedParams: algosdk.SuggestedParams) {
+        if (params.lease) txn.addLease(params.lease);
+        if (params.rekeyTo) txn.addRekey(params.rekeyTo);
+        if (params.note) txn.note = params.note;
+
+        if (params.flatFee !== undefined && params.extraFee !== undefined) {
+            throw Error('Cannot set both flatFee and extraFee')
+        }
+
+        if (params.flatFee) {
+            txn.fee = params.flatFee;
+        } else {
+            txn.fee = (txn.estimateSize() * suggestedParams.fee) || algosdk.ALGORAND_MIN_TX_FEE
+            if (params.extraFee) txn.fee += params.extraFee;
+        }
+
+        return txn
+    }
+
     private buildPayment(params: PayTxnParams, suggestedParams: algosdk.SuggestedParams) {
         const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
             from: params.sender,
             to: params.to,
             amount: params.amount,
             suggestedParams,
-            note: params.note,
-            rekeyTo: params.rekeyTo,
         });
 
-        if (params.lease) txn.addLease(params.lease);
-
-        return txn
+        return this.commonTxnBuildStep(params, txn, suggestedParams)
     }
 
     private buildAssetCreate(params: AssetCreateParams, suggestedParams: algosdk.SuggestedParams) {
@@ -206,9 +225,7 @@ class AlgokitComposer {
             defaultFrozen: params.defaultFrozen ?? false
         });
 
-        if (params.lease) txn.addLease(params.lease);
-
-        return txn
+        return this.commonTxnBuildStep(params, txn, suggestedParams)
     }
 
     private buildAppCall(params: AppCallParams, suggestedParams: algosdk.SuggestedParams) {
@@ -227,18 +244,21 @@ class AlgokitComposer {
             numLocalByteSlices: params.schema?.localByteSlices || 0,
             numGlobalInts: params.schema?.globalUints || 0,
             numGlobalByteSlices: params.schema?.globalByteSlices || 0,
-            lease: params.lease,
         }
+
+        let txn: algosdk.Transaction;
 
         if (!params.appID) {
             if (params.approvalProgram === undefined || params.clearProgram === undefined) {
                 throw new Error('approvalProgram and clearProgram are required for application creation');
             }
 
-            return makeApplicationCreateTxnFromObject({ ...sdkParams, approvalProgram: params.approvalProgram, clearProgram: params.clearProgram })
+            txn = makeApplicationCreateTxnFromObject({ ...sdkParams, approvalProgram: params.approvalProgram, clearProgram: params.clearProgram })
         }
 
-        return makeApplicationCallTxnFromObject({ ...sdkParams, appIndex: params.appID })
+        txn = makeApplicationCallTxnFromObject({ ...sdkParams, appIndex: params.appID! })
+
+        return this.commonTxnBuildStep(params, txn, suggestedParams)
     }
 
     private buildAssetConfig(params: AssetConfigParams, suggestedParams: algosdk.SuggestedParams) {
@@ -251,13 +271,9 @@ class AlgokitComposer {
             freeze: params.freeze,
             clawback: params.clawback,
             strictEmptyAddressChecking: false,
-            rekeyTo: params.rekeyTo,
-            note: params.note,
         });
 
-        if (params.lease) txn.addLease(params.lease);
-
-        return txn
+        return this.commonTxnBuildStep(params, txn, suggestedParams)
     }
 
     private buildAssetDestroy(params: AssetDestroyParams, suggestedParams: algosdk.SuggestedParams) {
@@ -265,13 +281,9 @@ class AlgokitComposer {
             from: params.sender,
             assetIndex: params.assetID,
             suggestedParams,
-            rekeyTo: params.rekeyTo,
-            note: params.note,
         });
 
-        if (params.lease) txn.addLease(params.lease);
-
-        return txn
+        return this.commonTxnBuildStep(params, txn, suggestedParams)
     }
 
     private buildAssetFreeze(params: AssetFreezeParams, suggestedParams: algosdk.SuggestedParams) {
@@ -281,13 +293,9 @@ class AlgokitComposer {
             freezeTarget: params.account,
             freezeState: params.frozen,
             suggestedParams,
-            rekeyTo: params.rekeyTo,
-            note: params.note,
         });
 
-        if (params.lease) txn.addLease(params.lease);
-
-        return txn
+        return this.commonTxnBuildStep(params, txn, suggestedParams)
     }
 
     private buildAssetTransfer(params: AssetTransferParams, suggestedParams: algosdk.SuggestedParams) {
@@ -297,15 +305,11 @@ class AlgokitComposer {
             assetIndex: params.assetID,
             amount: params.amount,
             suggestedParams,
-            rekeyTo: params.rekeyTo,
-            note: params.note,
             closeRemainderTo: params.closeAssetTo,
             revocationTarget: params.clawbackTarget,
         });
 
-        if (params.lease) txn.addLease(params.lease);
-
-        return txn
+        return this.commonTxnBuildStep(params, txn, suggestedParams)
     }
 
     private buildKeyReg(params: KeyRegParams, suggestedParams: algosdk.SuggestedParams) {
@@ -341,8 +345,7 @@ class AlgokitComposer {
             )
         }
 
-        if (params.lease) txn.addLease(params.lease);
-        return txn
+        return this.commonTxnBuildStep(params, txn, suggestedParams)
     }
 
     async buildGroup() {
