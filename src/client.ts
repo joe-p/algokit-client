@@ -1,4 +1,4 @@
-import algosdk, { makeApplicationCallTxnFromObject, makeApplicationCreateTxn, makeApplicationCreateTxnFromObject } from 'algosdk'
+import algosdk, { ABIArgument, makeApplicationCallTxnFromObject, makeApplicationCreateTxn, makeApplicationCreateTxnFromObject } from 'algosdk'
 import * as algokit from '@algorandfoundation/algokit-utils'
 
 type CommonTxnParams = {
@@ -79,7 +79,7 @@ type AssetTransferParams = CommonTxnParams & {
 }
 
 type AppCallParams = CommonTxnParams & {
-    onComplete: algosdk.OnApplicationComplete
+    onComplete?: algosdk.OnApplicationComplete
     appID?: number
     approvalProgram?: Uint8Array
     clearProgram?: Uint8Array
@@ -89,12 +89,18 @@ type AppCallParams = CommonTxnParams & {
         localUints: number
         localByteSlices: number
     }
-    appArgs?: Uint8Array[]
+    args?: Uint8Array[]
     accountReferences?: string[]
     appReferences?: number[]
     assetReferences?: number[]
     extraPages?: number
     boxReferences?: algosdk.BoxReference[]
+}
+
+type MethodCallParams = CommonTxnParams & Omit<AppCallParams, 'args'> & {
+    appID: number
+    method: algosdk.ABIMethod
+    args: (algosdk.ABIValue | Txn)[]
 }
 
 type Txn =
@@ -108,6 +114,7 @@ type Txn =
     | (KeyRegParams & { type: 'keyReg' })
     | (algosdk.TransactionWithSigner & { type: 'txnWithSigner' })
     | { atc: algosdk.AtomicTransactionComposer, type: 'atc' }
+    | (MethodCallParams & { type: 'methodCall' })
 
 class AlgokitComposer {
     atc: algosdk.AtomicTransactionComposer;
@@ -179,6 +186,14 @@ class AlgokitComposer {
         return this
     }
 
+    /** 
+    * @deprecated TODO: test with txn argument
+    */
+    addMethodCall(params: MethodCallParams) {
+        this.txns.push({ ...params, type: 'methodCall' })
+        return this
+    }
+
     private buildAtc(atc: algosdk.AtomicTransactionComposer, txnWithSigners: algosdk.TransactionWithSigner[], methodCalls: Map<number, algosdk.ABIMethod>) {
         const currentLength = txnWithSigners.length;
         const group = atc.buildGroup();
@@ -226,6 +241,51 @@ class AlgokitComposer {
         return txn
     }
 
+    private buildMethodCall(
+        params: MethodCallParams,
+        suggestedParams: algosdk.SuggestedParams,
+        txnWithSigners: algosdk.TransactionWithSigner[],
+        methodCalls: Map<number, algosdk.ABIMethod>
+    ) {
+        const methodArgs = params.args.map((arg, i) => {
+            if (Object.values(algosdk.ABITransactionType).includes(params.method.args[i].type as algosdk.ABITransactionType)) {
+                const txnType = (arg as Txn).type;
+
+                if (txnType === 'appCall') {
+                    return this.buildAppCall(arg as AppCallParams, suggestedParams);
+                } else if (txnType === 'pay') {
+                    return this.buildPayment(arg as PayTxnParams, suggestedParams);
+                } else if (txnType === 'assetCreate') {
+                    return this.buildAssetCreate(arg as AssetCreateParams, suggestedParams);
+                } else if (txnType === 'assetConfig') {
+                    return this.buildAssetConfig(arg as AssetConfigParams, suggestedParams);
+                } else if (txnType === 'assetDestroy') {
+                    return this.buildAssetDestroy(arg as AssetDestroyParams, suggestedParams);
+                } else if (txnType === 'assetFreeze') {
+                    return this.buildAssetFreeze(arg as AssetFreezeParams, suggestedParams);
+                } else if (txnType === 'assetTransfer') {
+                    return this.buildAssetTransfer(arg as AssetTransferParams, suggestedParams);
+                } else if (txnType === 'keyReg') {
+                    return this.buildKeyReg(arg as KeyRegParams, suggestedParams);
+                } else throw Error(`Unsupported method arg transaction type: ${txnType}`)
+            }
+
+            return arg
+        })
+
+
+        const methodAtc = new algosdk.AtomicTransactionComposer();
+
+        methodAtc.addMethodCall({
+            ...params,
+            suggestedParams,
+            signer: params.signer ?? this.getSigner(params.sender),
+            methodArgs: methodArgs as ABIArgument[]
+        });
+
+        this.buildAtc(methodAtc, txnWithSigners, methodCalls);
+    }
+
     private buildPayment(params: PayTxnParams, suggestedParams: algosdk.SuggestedParams) {
         const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
             from: params.sender,
@@ -256,7 +316,7 @@ class AlgokitComposer {
             onComplete: params.onComplete,
             approvalProgram: params.approvalProgram,
             clearProgram: params.clearProgram,
-            appArgs: params.appArgs,
+            appArgs: params.args,
             accounts: params.accountReferences,
             foreignApps: params.appReferences,
             foreignAssets: params.assetReferences,
@@ -269,15 +329,17 @@ class AlgokitComposer {
 
         let txn: algosdk.Transaction;
 
+        const onComplete = params.onComplete || algosdk.OnApplicationComplete.NoOpOC;
+
         if (!params.appID) {
             if (params.approvalProgram === undefined || params.clearProgram === undefined) {
                 throw new Error('approvalProgram and clearProgram are required for application creation');
             }
 
-            txn = makeApplicationCreateTxnFromObject({ ...sdkParams, approvalProgram: params.approvalProgram, clearProgram: params.clearProgram })
+            txn = makeApplicationCreateTxnFromObject({ ...sdkParams, onComplete, approvalProgram: params.approvalProgram, clearProgram: params.clearProgram })
         }
 
-        txn = makeApplicationCallTxnFromObject({ ...sdkParams, appIndex: params.appID! })
+        txn = makeApplicationCallTxnFromObject({ ...sdkParams, onComplete, appIndex: params.appID! })
 
         return this.commonTxnBuildStep(params, txn, suggestedParams)
     }
@@ -369,6 +431,51 @@ class AlgokitComposer {
         return this.commonTxnBuildStep(params, txn, suggestedParams)
     }
 
+    async buildTxn(txn: Txn, txnWithSigners: algosdk.TransactionWithSigner[], methodCalls: Map<number, algosdk.ABIMethod>, suggestedParams: algosdk.SuggestedParams) {
+        if (txn.type === 'txnWithSigner') {
+            txnWithSigners.push(txn);
+            return;
+        }
+
+        if (txn.type === 'atc') {
+            this.buildAtc(txn.atc, txnWithSigners, methodCalls);
+            return;
+        }
+
+        if (txn.type === 'methodCall') {
+            this.buildMethodCall(txn, suggestedParams, txnWithSigners, methodCalls);
+            return;
+        }
+
+        const signer = txn.signer ?? this.getSigner(txn.sender);
+
+        if (txn.type === 'pay') {
+            const payment = this.buildPayment(txn, suggestedParams);
+            txnWithSigners.push({ txn: payment, signer });
+        } else if (txn.type === 'assetCreate') {
+            const assetCreate = this.buildAssetCreate(txn, suggestedParams);
+            txnWithSigners.push({ txn: assetCreate, signer });
+        } else if (txn.type === 'appCall') {
+            const appCall = this.buildAppCall(txn, suggestedParams);
+            txnWithSigners.push({ txn: appCall, signer });
+        } else if (txn.type === 'assetConfig') {
+            const assetConfig = this.buildAssetConfig(txn, suggestedParams);
+            txnWithSigners.push({ txn: assetConfig, signer });
+        } else if (txn.type === 'assetDestroy') {
+            const assetDestroy = this.buildAssetDestroy(txn, suggestedParams);
+            txnWithSigners.push({ txn: assetDestroy, signer });
+        } else if (txn.type === 'assetFreeze') {
+            const assetFreeze = this.buildAssetFreeze(txn, suggestedParams);
+            txnWithSigners.push({ txn: assetFreeze, signer });
+        } else if (txn.type === 'assetTransfer') {
+            const assetTransfer = this.buildAssetTransfer(txn, suggestedParams);
+            txnWithSigners.push({ txn: assetTransfer, signer });
+        } else if (txn.type === 'keyReg') {
+            const keyReg = this.buildKeyReg(txn, suggestedParams);
+            txnWithSigners.push({ txn: keyReg, signer });
+        }
+    }
+
     async buildGroup() {
         const suggestedParams = await this.getSuggestedParams();
 
@@ -376,43 +483,7 @@ class AlgokitComposer {
         const methodCalls = new Map<number, algosdk.ABIMethod>();
 
         this.txns.forEach((txn) => {
-            if (txn.type === 'txnWithSigner') {
-                txnWithSigners.push(txn);
-                return;
-            }
-
-            if (txn.type === 'atc') {
-                this.buildAtc(txn.atc, txnWithSigners, methodCalls);
-                return;
-            }
-
-            const signer = txn.signer ?? this.getSigner(txn.sender);
-
-            if (txn.type === 'pay') {
-                const payment = this.buildPayment(txn, suggestedParams);
-                txnWithSigners.push({ txn: payment, signer });
-            } else if (txn.type === 'assetCreate') {
-                const assetCreate = this.buildAssetCreate(txn, suggestedParams);
-                txnWithSigners.push({ txn: assetCreate, signer });
-            } else if (txn.type === 'appCall') {
-                const appCall = this.buildAppCall(txn, suggestedParams);
-                txnWithSigners.push({ txn: appCall, signer });
-            } else if (txn.type === 'assetConfig') {
-                const assetConfig = this.buildAssetConfig(txn, suggestedParams);
-                txnWithSigners.push({ txn: assetConfig, signer });
-            } else if (txn.type === 'assetDestroy') {
-                const assetDestroy = this.buildAssetDestroy(txn, suggestedParams);
-                txnWithSigners.push({ txn: assetDestroy, signer });
-            } else if (txn.type === 'assetFreeze') {
-                const assetFreeze = this.buildAssetFreeze(txn, suggestedParams);
-                txnWithSigners.push({ txn: assetFreeze, signer });
-            } else if (txn.type === 'assetTransfer') {
-                const assetTransfer = this.buildAssetTransfer(txn, suggestedParams);
-                txnWithSigners.push({ txn: assetTransfer, signer });
-            } else if (txn.type === 'keyReg') {
-                const keyReg = this.buildKeyReg(txn, suggestedParams);
-                txnWithSigners.push({ txn: keyReg, signer });
-            }
+            this.buildTxn(txn, txnWithSigners, methodCalls, suggestedParams);
         });
 
         txnWithSigners.forEach((ts) => {

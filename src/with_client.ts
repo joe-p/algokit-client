@@ -43,7 +43,21 @@ async function main() {
         .addAtc(doMathAtc)
         .execute();
 
-    console.log('return value:', result.returns?.[0].returnValue?.valueOf())
+    console.log('addAtc return value:', result.returns?.[0].returnValue?.valueOf())
+
+    const method = appClient.appClient.getABIMethod('doMath')!;
+
+    const res = await client.newGroup()
+        .addPayment({ sender: alice.addr, to: alice.addr, amount: 0, note: new Uint8Array([1]) })
+        .addMethodCall({
+            sender: alice.addr,
+            appID: Number((await appClient.appClient.getAppReference()).appId),
+            method,
+            args: [1, 2, 'sum']
+        })
+        .execute()
+
+    console.log('addMethodCall return value:', result.returns?.[0].returnValue?.valueOf())
 }
 
 main();
