@@ -19,10 +19,10 @@ async function main() {
     client.signers[dispenser.addr] = algosdk.makeBasicAccountTransactionSigner(dispenser);
 
     // Send payment
-    await client.sendPayment({ from: dispenser.addr, to: alice.addr, amount: 10e6 })
+    await client.sendPayment({ sender: dispenser.addr, to: alice.addr, amount: 10e6 })
 
     // Create an ASA
-    const createResult = await client.sendAssetCreate({ from: alice.addr, total: 100 })
+    const createResult = await client.sendAssetCreate({ sender: alice.addr, total: 100 })
 
     const assetIndex = Number(createResult.confirmations![0].assetIndex);
     console.log('Created asset', assetIndex);
@@ -39,7 +39,7 @@ async function main() {
     const doMathAtc = await appClient.compose().doMath({ a: 1, b: 2, operation: 'sum' }).atc()
     const result = await client
         .newGroup()
-        .addPayment({ from: alice.addr, to: alice.addr, amount: 0 })
+        .addPayment({ sender: alice.addr, to: alice.addr, amount: 0 })
         .addAtc(doMathAtc)
         .execute();
 
