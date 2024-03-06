@@ -4,12 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "compile": "tealscript test_contract/test.algo.ts test_contract/artifacts && algokit generate client test_contract/artifacts/ --language typescript  --output src/{contract_name}Client.ts",
+    "start": "bun src/with_client.ts"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@algorandfoundation/algokit-utils": "^5.4.0",
+    "@algorandfoundation/tealscript": "^0.86.0",
     "algosdk": "^2.7.0",
     "tsx": "^4.7.1",
     "typescript": "^5.3.3"

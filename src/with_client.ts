@@ -2,7 +2,7 @@
 import * as algokit from '@algorandfoundation/algokit-utils';
 import algosdk from 'algosdk';
 import AlgokitClient from './client';
-import { CalculatorClient } from './CalculatorClient';
+import { TestContractClient } from './TestContractClient';
 
 async function main() {
     // Instantiate Clients
@@ -28,7 +28,7 @@ async function main() {
     console.log('Created asset', assetIndex);
 
     // Instantite an algokit-generated typed client and create it
-    const appClient = new CalculatorClient({
+    const appClient = new TestContractClient({
         id: 0,
         resolveBy: 'id',
         sender: { addr: alice.addr, signer: client.signers[alice.addr] }
