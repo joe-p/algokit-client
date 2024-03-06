@@ -486,4 +486,28 @@ export default class AlgokitClient {
     sendAssetCreate(params: AssetCreateParams) {
         return this.newGroup().addAssetCreate(params).execute();
     }
+
+    sendAssetConfig(params: AssetConfigParams) {
+        return this.newGroup().addAssetConfig(params).execute();
+    }
+
+    sendAssetFreeze(params: AssetFreezeParams) {
+        return this.newGroup().addAssetFreeze(params).execute();
+    }
+
+    sendAssetDestroy(params: AssetDestroyParams) {
+        return this.newGroup().addAssetDestroy(params).execute();
+    }
+
+    sendAssetTransfer(params: AssetTransferParams) {
+        return this.newGroup().addAssetTransfer(params).execute();
+    }
+
+    sendAppCall(params: AppCallParams) {
+        return this.newGroup().addAppCall(params).execute();
+    }
+
+    sendKeyReg(params: KeyRegParams) {
+        return this.newGroup().addKeyReg(params).execute();
+    }
 }
