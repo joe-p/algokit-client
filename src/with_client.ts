@@ -45,19 +45,31 @@ async function main() {
 
     console.log('addAtc return value:', result.returns?.[0].returnValue?.valueOf())
 
-    const method = appClient.appClient.getABIMethod('doMath')!;
 
-    const res = await client.newGroup()
+    const methodRes = await client.newGroup()
         .addPayment({ sender: alice.addr, to: alice.addr, amount: 0, note: new Uint8Array([1]) })
         .addMethodCall({
             sender: alice.addr,
             appID: Number((await appClient.appClient.getAppReference()).appId),
-            method,
+            method: appClient.appClient.getABIMethod('doMath')!,
             args: [1, 2, 'sum']
         })
         .execute()
 
-    console.log('addMethodCall return value:', result.returns?.[0].returnValue?.valueOf())
+    console.log('addMethodCall return value:', methodRes.returns?.[0].returnValue?.valueOf())
+
+    const txnRes = await client.newGroup()
+        .addPayment({ sender: alice.addr, to: alice.addr, amount: 0, note: new Uint8Array([1]) })
+        .addMethodCall({
+            sender: alice.addr,
+            appID: Number((await appClient.appClient.getAppReference()).appId),
+            method: appClient.appClient.getABIMethod('txnMethod')!,
+            args: [{ type: 'pay', sender: alice.addr, to: alice.addr, amount: 0 }]
+        })
+        .execute()
+
+    console.log('txnMethod return value:', txnRes.returns?.[0].returnValue?.valueOf())
+
 }
 
 main();

@@ -186,9 +186,6 @@ class AlgokitComposer {
         return this
     }
 
-    /** 
-    * @deprecated TODO: test with txn argument
-    */
     addMethodCall(params: MethodCallParams) {
         this.txns.push({ ...params, type: 'methodCall' })
         return this
@@ -205,6 +202,7 @@ class AlgokitComposer {
         });
 
         group.forEach((ts) => {
+            ts.txn.group = undefined;
             txnWithSigners.push(ts);
         });
 
@@ -251,23 +249,26 @@ class AlgokitComposer {
             if (Object.values(algosdk.ABITransactionType).includes(params.method.args[i].type as algosdk.ABITransactionType)) {
                 const txnType = (arg as Txn).type;
 
+                let txn: algosdk.Transaction;
                 if (txnType === 'appCall') {
-                    return this.buildAppCall(arg as AppCallParams, suggestedParams);
+                    txn = this.buildAppCall(arg as AppCallParams, suggestedParams);
                 } else if (txnType === 'pay') {
-                    return this.buildPayment(arg as PayTxnParams, suggestedParams);
+                    txn = this.buildPayment(arg as PayTxnParams, suggestedParams);
                 } else if (txnType === 'assetCreate') {
-                    return this.buildAssetCreate(arg as AssetCreateParams, suggestedParams);
+                    txn = this.buildAssetCreate(arg as AssetCreateParams, suggestedParams);
                 } else if (txnType === 'assetConfig') {
-                    return this.buildAssetConfig(arg as AssetConfigParams, suggestedParams);
+                    txn = this.buildAssetConfig(arg as AssetConfigParams, suggestedParams);
                 } else if (txnType === 'assetDestroy') {
-                    return this.buildAssetDestroy(arg as AssetDestroyParams, suggestedParams);
+                    txn = this.buildAssetDestroy(arg as AssetDestroyParams, suggestedParams);
                 } else if (txnType === 'assetFreeze') {
-                    return this.buildAssetFreeze(arg as AssetFreezeParams, suggestedParams);
+                    txn = this.buildAssetFreeze(arg as AssetFreezeParams, suggestedParams);
                 } else if (txnType === 'assetTransfer') {
-                    return this.buildAssetTransfer(arg as AssetTransferParams, suggestedParams);
+                    txn = this.buildAssetTransfer(arg as AssetTransferParams, suggestedParams);
                 } else if (txnType === 'keyReg') {
-                    return this.buildKeyReg(arg as KeyRegParams, suggestedParams);
+                    txn = this.buildKeyReg(arg as KeyRegParams, suggestedParams);
                 } else throw Error(`Unsupported method arg transaction type: ${txnType}`)
+
+                return { txn, signer: params.signer || this.getSigner(params.sender) }
             }
 
             return arg
