@@ -420,8 +420,11 @@ export default class AlgokitClient {
 
     cachedSuggestedParams?: { params: algosdk.SuggestedParams, time: number }
 
-    constructor({ algodClient }: { algodClient: algosdk.Algodv2; }) {
+    defaultSigner?: algosdk.TransactionSigner
+
+    constructor({ algodClient, defaultSigner }: { algodClient: algosdk.Algodv2; defaultSigner?: algosdk.TransactionSigner }) {
         this.algod = algodClient;
+        this.defaultSigner = defaultSigner;
     }
 
     async getSuggestedParams() {
@@ -438,7 +441,7 @@ export default class AlgokitClient {
     newGroup(groupName?: string) {
         return new AlgokitComposer(
             this.algod,
-            (addr: string) => this.signers[addr],
+            (addr: string) => this.signers[addr] || this.defaultSigner,
             () => this.getSuggestedParams()
         );
     }
