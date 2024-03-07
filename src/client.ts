@@ -100,7 +100,7 @@ type AppCallParams = CommonTxnParams & {
 type MethodCallParams = CommonTxnParams & Omit<AppCallParams, 'args'> & {
     appID: number
     method: algosdk.ABIMethod
-    args: (algosdk.ABIValue | Txn)[]
+    args?: (algosdk.ABIValue | Txn)[]
 }
 
 type Txn =
@@ -245,11 +245,23 @@ class AlgokitComposer {
         txnWithSigners: algosdk.TransactionWithSigner[],
         methodCalls: Map<number, algosdk.ABIMethod>
     ) {
-        const methodArgs = params.args.map((arg, i) => {
+        const methodArgs: ABIArgument[] = []
+
+        params.args?.forEach((arg, i) => {
             if (Object.values(algosdk.ABITransactionType).includes(params.method.args[i].type as algosdk.ABITransactionType)) {
                 const txnType = (arg as Txn).type;
 
+                if (txnType === 'methodCall') {
+                    const tempTxnWithSigners: algosdk.TransactionWithSigner[] = []
+                    this.buildMethodCall(arg as MethodCallParams, suggestedParams, tempTxnWithSigners, methodCalls);
+                    // TODO: nested transaction arguments
+                    if (tempTxnWithSigners.length !== 1) throw Error('Nested transaction arguments not yet supported')
+                    methodArgs.push(tempTxnWithSigners[0])
+                    return
+                }
+
                 let txn: algosdk.Transaction;
+
                 if (txnType === 'appCall') {
                     txn = this.buildAppCall(arg as AppCallParams, suggestedParams);
                 } else if (txnType === 'pay') {
@@ -268,10 +280,11 @@ class AlgokitComposer {
                     txn = this.buildKeyReg(arg as KeyRegParams, suggestedParams);
                 } else throw Error(`Unsupported method arg transaction type: ${txnType}`)
 
-                return { txn, signer: params.signer || this.getSigner(params.sender) }
+                methodArgs.push({ txn, signer: params.signer || this.getSigner(params.sender) })
+                return
             }
 
-            return arg
+            methodArgs.push(arg as algosdk.ABIValue)
         })
 
 
@@ -281,7 +294,7 @@ class AlgokitComposer {
             ...params,
             suggestedParams,
             signer: params.signer ?? this.getSigner(params.sender),
-            methodArgs: methodArgs as ABIArgument[]
+            methodArgs: methodArgs
         });
 
         this.buildAtc(methodAtc, txnWithSigners, methodCalls);

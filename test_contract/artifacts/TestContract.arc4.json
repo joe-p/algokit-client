@@ -28,7 +28,7 @@
       }
     },
     {
-      "name": "txnMethod",
+      "name": "txnArg",
       "args": [
         {
           "name": "txn",
@@ -37,6 +37,25 @@
       ],
       "returns": {
         "type": "address"
+      }
+    },
+    {
+      "name": "helloWorld",
+      "args": [],
+      "returns": {
+        "type": "string"
+      }
+    },
+    {
+      "name": "methodArg",
+      "args": [
+        {
+          "name": "call",
+          "type": "appl"
+        }
+      ],
+      "returns": {
+        "type": "uint64"
       }
     },
     {

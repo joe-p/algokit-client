@@ -63,13 +63,31 @@ async function main() {
         .addMethodCall({
             sender: alice.addr,
             appID: Number((await appClient.appClient.getAppReference()).appId),
-            method: appClient.appClient.getABIMethod('txnMethod')!,
+            method: appClient.appClient.getABIMethod('txnArg')!,
             args: [{ type: 'pay', sender: alice.addr, to: alice.addr, amount: 0 }]
         })
         .execute()
 
-    console.log('txnMethod return value:', txnRes.returns?.[0].returnValue?.valueOf())
+    console.log('txnArg return value:', txnRes.returns?.[0].returnValue?.valueOf())
 
+    const helloWorldParams = {
+        type: 'methodCall' as 'methodCall',
+        sender: alice.addr,
+        appID: Number((await appClient.appClient.getAppReference()).appId),
+        method: appClient.appClient.getABIMethod('helloWorld')!,
+    }
+
+    const methodArgRes = await client.newGroup()
+        .addMethodCall({
+            sender: alice.addr,
+            appID: Number((await appClient.appClient.getAppReference()).appId),
+            method: appClient.appClient.getABIMethod('methodArg')!,
+            args: [helloWorldParams]
+        })
+        .execute()
+
+    console.log('methodArg return value[0]:', methodArgRes.returns?.[0].returnValue?.valueOf())
+    console.log('methodArg return value[1]:', methodArgRes.returns?.[1].returnValue?.valueOf())
 }
 
 main();

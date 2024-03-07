@@ -153,8 +153,8 @@ doMath:
 	frame_bury 0
 	retsub
 
-// txnMethod(pay)address
-*abi_route_txnMethod:
+// txnArg(pay)address
+*abi_route_txnArg:
 	// The ABI return prefix
 	byte 0x151f7c75
 
@@ -168,21 +168,81 @@ doMath:
 	==
 	assert
 
-	// execute txnMethod(pay)address
-	callsub txnMethod
+	// execute txnArg(pay)address
+	callsub txnArg
 	concat
 	log
 	int 1
 	return
 
-// txnMethod(txn: PayTxn): Address
-txnMethod:
+// txnArg(txn: PayTxn): Address
+txnArg:
 	proto 1 1
 
 	// test_contract/test.algo.ts:48
 	// return txn.sender;
 	frame_dig -1 // txn: PayTxn
 	gtxns Sender
+	retsub
+
+// helloWorld()string
+*abi_route_helloWorld:
+	// The ABI return prefix
+	byte 0x151f7c75
+
+	// execute helloWorld()string
+	callsub helloWorld
+	dup
+	len
+	itob
+	extract 6 2
+	swap
+	concat
+	concat
+	log
+	int 1
+	return
+
+// helloWorld(): string
+helloWorld:
+	proto 0 1
+
+	// test_contract/test.algo.ts:52
+	// return 'Hello, World!';
+	byte 0x48656c6c6f2c20576f726c6421 // "Hello, World!"
+	retsub
+
+// methodArg(appl)uint64
+*abi_route_methodArg:
+	// The ABI return prefix
+	byte 0x151f7c75
+
+	// call: appl
+	txn GroupIndex
+	int 1
+	-
+	dup
+	gtxns TypeEnum
+	int appl
+	==
+	assert
+
+	// execute methodArg(appl)uint64
+	callsub methodArg
+	itob
+	concat
+	log
+	int 1
+	return
+
+// methodArg(call: AppCallTxn): AppID
+methodArg:
+	proto 1 1
+
+	// test_contract/test.algo.ts:56
+	// return call.applicationID
+	frame_dig -1 // call: AppCallTxn
+	gtxns ApplicationID
 	retsub
 
 *abi_route_createApplication:
@@ -197,7 +257,9 @@ txnMethod:
 
 *call_NoOp:
 	method "doMath(uint64,uint64,string)uint64"
-	method "txnMethod(pay)address"
+	method "txnArg(pay)address"
+	method "helloWorld()string"
+	method "methodArg(appl)uint64"
 	txna ApplicationArgs 0
-	match *abi_route_doMath *abi_route_txnMethod
+	match *abi_route_doMath *abi_route_txnArg *abi_route_helloWorld *abi_route_methodArg
 	err

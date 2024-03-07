@@ -44,7 +44,15 @@ export default class TestContract extends Contract {
         return result;
     }
 
-    txnMethod(txn: PayTxn): Address {
+    txnArg(txn: PayTxn): Address {
         return txn.sender;
+    }
+
+    helloWorld(): string {
+        return 'Hello, World!';
+    }
+
+    methodArg(call: AppCallTxn): AppID {
+        return call.applicationID
     }
 }
