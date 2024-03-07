@@ -609,4 +609,8 @@ export default class AlgokitClient {
     sendKeyReg(params: KeyRegParams) {
         return this.newGroup().addKeyReg(params).execute();
     }
+
+    sendMethodCall(params: MethodCallParams) {
+        return this.newGroup().addMethodCall(params).execute();
+    }
 }
