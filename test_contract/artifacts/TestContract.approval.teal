@@ -245,6 +245,112 @@ methodArg:
 	gtxns ApplicationID
 	retsub
 
+// nestedTxnArg(pay,appl)uint64
+*abi_route_nestedTxnArg:
+	// The ABI return prefix
+	byte 0x151f7c75
+
+	// call: appl
+	txn GroupIndex
+	int 1
+	-
+	dup
+	gtxns TypeEnum
+	int appl
+	==
+	assert
+
+	// txn: pay
+	txn GroupIndex
+	int 2
+	-
+	dup
+	gtxns TypeEnum
+	int pay
+	==
+	assert
+
+	// execute nestedTxnArg(pay,appl)uint64
+	callsub nestedTxnArg
+	itob
+	concat
+	log
+	int 1
+	return
+
+// nestedTxnArg(txn: PayTxn, call: AppCallTxn): AppID
+nestedTxnArg:
+	proto 2 1
+
+	// test_contract/test.algo.ts:60
+	// return call.applicationID
+	frame_dig -2 // call: AppCallTxn
+	gtxns ApplicationID
+	retsub
+
+// doubleNestedTxnArg(pay,appl,pay,appl)uint64
+*abi_route_doubleNestedTxnArg:
+	// The ABI return prefix
+	byte 0x151f7c75
+
+	// call3: appl
+	txn GroupIndex
+	int 1
+	-
+	dup
+	gtxns TypeEnum
+	int appl
+	==
+	assert
+
+	// txn2: pay
+	txn GroupIndex
+	int 2
+	-
+	dup
+	gtxns TypeEnum
+	int pay
+	==
+	assert
+
+	// call1: appl
+	txn GroupIndex
+	int 3
+	-
+	dup
+	gtxns TypeEnum
+	int appl
+	==
+	assert
+
+	// txn0: pay
+	txn GroupIndex
+	int 4
+	-
+	dup
+	gtxns TypeEnum
+	int pay
+	==
+	assert
+
+	// execute doubleNestedTxnArg(pay,appl,pay,appl)uint64
+	callsub doubleNestedTxnArg
+	itob
+	concat
+	log
+	int 1
+	return
+
+// doubleNestedTxnArg(txn0: PayTxn, call1: AppCallTxn, txn2: PayTxn, call3: AppCallTxn): AppID
+doubleNestedTxnArg:
+	proto 4 1
+
+	// test_contract/test.algo.ts:64
+	// return call1.applicationID
+	frame_dig -2 // call1: AppCallTxn
+	gtxns ApplicationID
+	retsub
+
 *abi_route_createApplication:
 	int 1
 	return
@@ -260,6 +366,8 @@ methodArg:
 	method "txnArg(pay)address"
 	method "helloWorld()string"
 	method "methodArg(appl)uint64"
+	method "nestedTxnArg(pay,appl)uint64"
+	method "doubleNestedTxnArg(pay,appl,pay,appl)uint64"
 	txna ApplicationArgs 0
-	match *abi_route_doMath *abi_route_txnArg *abi_route_helloWorld *abi_route_methodArg
+	match *abi_route_doMath *abi_route_txnArg *abi_route_helloWorld *abi_route_methodArg *abi_route_nestedTxnArg *abi_route_doubleNestedTxnArg
 	err

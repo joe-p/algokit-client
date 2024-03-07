@@ -55,4 +55,12 @@ export default class TestContract extends Contract {
     methodArg(call: AppCallTxn): AppID {
         return call.applicationID
     }
+
+    nestedTxnArg(txn: PayTxn, call: AppCallTxn): AppID {
+        return call.applicationID
+    }
+
+    doubleNestedTxnArg(txn0: PayTxn, call1: AppCallTxn, txn2: PayTxn, call3: AppCallTxn): AppID {
+        return call1.applicationID
+    }
 }

@@ -58,14 +58,16 @@ async function main() {
 
     console.log('addMethodCall return value:', methodRes.returns?.[0].returnValue?.valueOf())
 
+    const txnArgParams = {
+        sender: alice.addr,
+        appID: Number((await appClient.appClient.getAppReference()).appId),
+        method: appClient.appClient.getABIMethod('txnArg')!,
+        args: [{ type: 'pay' as 'pay', sender: alice.addr, to: alice.addr, amount: 0 }]
+    }
+
     const txnRes = await client.newGroup()
         .addPayment({ sender: alice.addr, to: alice.addr, amount: 0, note: new Uint8Array([1]) })
-        .addMethodCall({
-            sender: alice.addr,
-            appID: Number((await appClient.appClient.getAppReference()).appId),
-            method: appClient.appClient.getABIMethod('txnArg')!,
-            args: [{ type: 'pay', sender: alice.addr, to: alice.addr, amount: 0 }]
-        })
+        .addMethodCall(txnArgParams)
         .execute()
 
     console.log('txnArg return value:', txnRes.returns?.[0].returnValue?.valueOf())
@@ -87,7 +89,37 @@ async function main() {
         .execute()
 
     console.log('methodArg return value[0]:', methodArgRes.returns?.[0].returnValue?.valueOf())
-    console.log('methodArg return value[1]:', methodArgRes.returns?.[1].returnValue?.valueOf())
+
+    const nestedTxnArgRes = await client.newGroup()
+        .addMethodCall({
+            sender: alice.addr,
+            appID: Number((await appClient.appClient.getAppReference()).appId),
+            method: appClient.appClient.getABIMethod('nestedTxnArg')!,
+            args: [{ type: 'methodCall', ...txnArgParams }]
+        })
+        .execute()
+
+    console.log('nestedTxnArgRes return value[0]:', nestedTxnArgRes.returns?.[0].returnValue?.valueOf())
+
+    const secondTxnArgParams = {
+        type: 'methodCall' as 'methodCall',
+        sender: alice.addr,
+        appID: Number((await appClient.appClient.getAppReference()).appId),
+        method: appClient.appClient.getABIMethod('txnArg')!,
+        args: [{ type: 'pay' as 'pay', sender: alice.addr, to: alice.addr, amount: 1 }],
+        note: new Uint8Array([1])
+    }
+
+    const doubleNestedTxnArgRes = await client.newGroup()
+        .addMethodCall({
+            sender: alice.addr,
+            appID: Number((await appClient.appClient.getAppReference()).appId),
+            method: appClient.appClient.getABIMethod('doubleNestedTxnArg')!,
+            args: [{ type: 'methodCall', ...txnArgParams }, secondTxnArgParams]
+        })
+        .execute()
+
+    console.log('doubleNestedTxnArgRes return value[0]:', doubleNestedTxnArgRes.returns?.[0].returnValue?.valueOf())
 }
 
 main();

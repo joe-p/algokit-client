@@ -59,6 +59,46 @@
       }
     },
     {
+      "name": "nestedTxnArg",
+      "args": [
+        {
+          "name": "txn",
+          "type": "pay"
+        },
+        {
+          "name": "call",
+          "type": "appl"
+        }
+      ],
+      "returns": {
+        "type": "uint64"
+      }
+    },
+    {
+      "name": "doubleNestedTxnArg",
+      "args": [
+        {
+          "name": "txn0",
+          "type": "pay"
+        },
+        {
+          "name": "call1",
+          "type": "appl"
+        },
+        {
+          "name": "txn2",
+          "type": "pay"
+        },
+        {
+          "name": "call3",
+          "type": "appl"
+        }
+      ],
+      "returns": {
+        "type": "uint64"
+      }
+    },
+    {
       "name": "createApplication",
       "args": [],
       "returns": {

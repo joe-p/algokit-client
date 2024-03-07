@@ -246,17 +246,18 @@ class AlgokitComposer {
         methodCalls: Map<number, algosdk.ABIMethod>
     ) {
         const methodArgs: ABIArgument[] = []
+        /** When a methodCall is encountered, we need to offset the arg index because one method call might have multiple txns */
+        let argOffset = 0
 
         params.args?.forEach((arg, i) => {
-            if (Object.values(algosdk.ABITransactionType).includes(params.method.args[i].type as algosdk.ABITransactionType)) {
+            if (Object.values(algosdk.ABITransactionType).includes(params.method.args[i + argOffset].type as algosdk.ABITransactionType)) {
                 const txnType = (arg as Txn).type;
 
                 if (txnType === 'methodCall') {
                     const tempTxnWithSigners: algosdk.TransactionWithSigner[] = []
-                    this.buildMethodCall(arg as MethodCallParams, suggestedParams, tempTxnWithSigners, methodCalls);
-                    // TODO: nested transaction arguments
-                    if (tempTxnWithSigners.length !== 1) throw Error('Nested transaction arguments not yet supported')
-                    methodArgs.push(tempTxnWithSigners[0])
+                    this.buildMethodCall(arg as MethodCallParams, suggestedParams, tempTxnWithSigners, new Map());
+                    methodArgs.push(...tempTxnWithSigners)
+                    argOffset += tempTxnWithSigners.length - 1
                     return
                 }
 
