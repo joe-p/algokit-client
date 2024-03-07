@@ -243,7 +243,8 @@ class AlgokitComposer {
         params: MethodCallParams,
         suggestedParams: algosdk.SuggestedParams,
         txnWithSigners: algosdk.TransactionWithSigner[],
-        methodCalls: Map<number, algosdk.ABIMethod>
+        methodCalls: Map<number, algosdk.ABIMethod>,
+        methodCallOffset: number = 0
     ) {
         const methodArgs: ABIArgument[] = []
         /** When a methodCall is encountered, we need to offset the arg index because one method call might have multiple txns */
@@ -254,10 +255,22 @@ class AlgokitComposer {
                 const txnType = (arg as Txn).type;
 
                 if (txnType === 'methodCall') {
+                    // Don't modify the real txnWithSigners because that will happen once we build the top-level ATC
                     const tempTxnWithSigners: algosdk.TransactionWithSigner[] = []
-                    this.buildMethodCall(arg as MethodCallParams, suggestedParams, tempTxnWithSigners, new Map());
+
+                    // Don't modify the real methodCalls because we aren't going to have the real txnWithSigners until we build the top-level ATC
+                    const tempMap = new Map<number, algosdk.ABIMethod>();
+
+                    this.buildMethodCall(arg as MethodCallParams, suggestedParams, tempTxnWithSigners, tempMap, methodCallOffset);
                     methodArgs.push(...tempTxnWithSigners)
                     argOffset += tempTxnWithSigners.length - 1
+
+                    tempMap.forEach((method, idx) => {
+                        methodCalls.set(methodCallOffset + idx, method)
+                    })
+
+                    methodCallOffset += tempTxnWithSigners.length
+
                     return
                 }
 

@@ -89,6 +89,7 @@ async function main() {
         .execute()
 
     console.log('methodArg return value[0]:', methodArgRes.returns?.[0].returnValue?.valueOf())
+    console.log('methodArg return value[1]:', methodArgRes.returns?.[1].returnValue?.valueOf())
 
     const nestedTxnArgRes = await client.newGroup()
         .addMethodCall({
@@ -100,6 +101,7 @@ async function main() {
         .execute()
 
     console.log('nestedTxnArgRes return value[0]:', nestedTxnArgRes.returns?.[0].returnValue?.valueOf())
+    console.log('nestedTxnArgRes return value[1]:', nestedTxnArgRes.returns?.[1].returnValue?.valueOf())
 
     const secondTxnArgParams = {
         type: 'methodCall' as 'methodCall',
@@ -120,6 +122,8 @@ async function main() {
         .execute()
 
     console.log('doubleNestedTxnArgRes return value[0]:', doubleNestedTxnArgRes.returns?.[0].returnValue?.valueOf())
+    console.log('doubleNestedTxnArgRes return value[1]:', doubleNestedTxnArgRes.returns?.[1].returnValue?.valueOf())
+    console.log('doubleNestedTxnArgRes return value[2]:', doubleNestedTxnArgRes.returns?.[2].returnValue?.valueOf())
 }
 
 main();
