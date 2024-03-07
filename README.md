@@ -60,3 +60,11 @@ It is currently common practice to use the default validity window (1000 rounds)
 
 `AlgokitComposer.defaultValidityWindow` is set to a much more reasonable window (for user-facing dApps) of 10 rounds (~30 seconds). By default, `AlgokitComposer.execute()` will wait until the last valid round in the transction group has passed to ensure tranasctions are confirmed when the user is not expecting it.
 
+## ABI method argument composability
+
+Currently, if an application expects another ABI method call as an argument there is no great way to handle that other than manually building the ATC and deconstructing the group. Even after doing that, the return values for the argument calls will not be availible.
+
+### Solution
+
+`AlgokitComposer` method calls support other method calls as arguments.
+
